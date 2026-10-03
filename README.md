@@ -1,21 +1,25 @@
 # Intelligent Experience Extractor
 
-> Capture verified engineering experiences from troubleshooting, builds, and deployments — sanitized, deduplicated, and ready for reuse.
+> Capture verified engineering experiences from troubleshooting, builds, and deployments — sanitized, deduplicated, and ready for reuse with a lightweight two-tier indexing architecture.
 
-**Intelligent Experience Extractor** is an agent skill that teaches AI coding assistants how to extract structured, reusable engineering knowledge from completed work. It follows a disciplined `problem → root cause → solution → verification → prevention` chain, automatically redacts sensitive data, checks for duplicates, and never writes without explicit authorization.
+**Intelligent Experience Extractor** is an agent skill that teaches AI coding assistants how to extract structured, reusable engineering knowledge from completed work. It solves the critical problem of **context bloating** by introducing a **two-tier architecture (`experiences-index.md` + `experiences.md`)**: agents read a tiny index first, and only grep specific sections on demand, never dumping massive history into context.
 
 ## Why
 
-Most engineering lessons are lost the moment a terminal window closes. The fix you spent two hours debugging today will take another two hours three months from now — because neither you nor your AI assistant remembered it. This skill turns every verified fix into a permanent, searchable, and reusable record that lives in your project's repository as plain Markdown.
+Most engineering lessons are lost the moment a terminal window closes. Traditional knowledge bases quickly grow to hundreds of kilobytes, becoming so large that injecting them wastes tens of thousands of tokens per turn and causes model distraction. 
+
+This skill keeps experience permanently searchable and lightweight:
+1. **Lightweight Index (`experiences-index.md`)** — a concise lookup table mapping observable symptoms to exact grep keywords; read in milliseconds with negligible tokens.
+2. **On-Demand Retrieval (`experiences.md`)** — agents grep only the matched entry slice, **never loading the entire body into context**.
 
 ## What It Does
 
-- **Before troubleshooting** — searches the project knowledge base for relevant past experiences (matched on error signatures, components, environment, and root cause)
-- **After verification** — evaluates whether the completed work produced a durable lesson worth recording
-- **Structured extraction** — distills the `symptom → root cause → solution → verification → prevention` chain from confirmed results only
-- **Auto-redaction** — strips API keys, tokens, passwords, emails, private IPs, hostnames, and customer data before the preview is even shown
-- **Deduplication** — scans existing entries for overlap before writing; suggests updates instead of duplicates
-- **Preview-then-save** — shows a structured preview; the user chooses **Save**, **Edit**, or **Skip**
+- **Before troubleshooting** — scans the lightweight `experiences-index.md` first; on match, greps only the relevant entry section from `experiences.md`.
+- **After verification** — evaluates whether completed work produced a durable lesson worth recording.
+- **Two-step atomic sync** — writes/merges the structured chain (`symptom → root cause → solution → verification → prevention`) into `experiences.md` AND appends an index mapping to `experiences-index.md`.
+- **Merge over append** — merges new evidence into existing topic entries instead of creating noisy duplicate logs.
+- **Auto-redaction** — strips API keys, tokens, passwords, emails, private IPs, and customer data before preview.
+- **Strict separation** — keeps debugging/troubleshooting lessons strictly in the experience base, preventing them from polluting project memory.
 
 ## The Experience Chain
 
@@ -31,11 +35,12 @@ Every recorded experience follows five fields:
 
 ## Hard Rules
 
-- **No secrets in previews.** Redaction happens *before* the user sees the preview. Consistent placeholders (`<REDACTED_TOKEN>`, `<PRIVATE_HOST>`) are used.
-- **No fabrication.** Commands, tests, metrics, file paths, issue numbers, and references are only recorded if they actually exist and were executed.
-- **No unsolicited writes.** The default state is *preview only*. Writing requires explicit user authorization or a persisted `auto-save=on` magic comment.
-- **No duplicates.** Existing entries are searched before writing. New evidence updates old entries rather than creating near-duplicates.
-- **Confidence is explicit.** Every entry carries a confidence label: `已验证` (verified), `部分验证` (partially verified), or `推测` (speculative — only when the user explicitly requests it).
+- **Never full-load the experience body.** Always read the index first, then grep on demand.
+- **Atomic index sync.** Every new or updated entry in `experiences.md` MUST have its corresponding entry in `experiences-index.md`.
+- **No secrets in previews.** Redaction happens *before* the user sees the preview (`<REDACTED_TOKEN>`, `<PRIVATE_HOST>`).
+- **No fabrication.** Commands, tests, metrics, and file paths are only recorded if they actually exist and were executed.
+- **No unsolicited writes.** Writing requires explicit user authorization or a persisted `auto-save=on` magic comment.
+- **Confidence is explicit.** Every entry carries a confidence label: `已验证` (verified), `部分验证` (partially verified), or `推测` (speculative).
 
 ## Structure
 
@@ -45,40 +50,26 @@ intelligent-experience-extractor/
 ├── agents/
 │   └── openai.yaml                   # Agent interface metadata
 ├── assets/
+│   ├── experiences-index.md          # Lightweight index template (symptom -> grep keyword)
 │   ├── experience-entry.md           # Experience entry template
-│   └── knowledge-base-readme.md      # Knowledge base index template
+│   └── knowledge-base-readme.md      # Knowledge base index & rules template
 ├── README.md
 ├── LICENSE
 └── .gitignore
 ```
 
-## Platform-Agnostic by Design
-
-Like its companion [Project Memory Curator](https://github.com), this skill uses only directory listing, text search, file read, and file write — capabilities every competent agent already has. No hooks, no custom tools, no network calls, no database. The knowledge base is just Markdown on disk, fully git-trackable and human-readable.
-
 ## Relationship to Project Memory Curator
 
 | | Project Memory Curator | Intelligent Experience Extractor |
 |---|---|---|
-| **Scope** | Broad: project context, preferences, decisions, runbooks, and experiences | Narrow: specifically engineering troubleshooting & operations experiences |
-| **Trigger** | Any engineering task (code, build, deploy, etc.) | Troubleshooting, build/deploy failures, CI/CD, config, performance, stability |
-| **Entry Format** | Flexible fields per category | Rigid `problem → root cause → solution → verification → prevention` chain |
-| **Redaction** | Manual review, user-facing | Automated before preview, with normalized placeholders |
-| **Knowledge Base** | Same `.agent-knowledge/` directory | Same `.agent-knowledge/` directory — they coexist and complement each other |
+| **Scope** | Project facts: tech stack, architecture boundaries, decisions, preferences, runbooks | Engineering experience: troubleshooting, debugging, build/deploy failures, performance |
+| **Data Type** | Durable system context and rules | Actionable problem-solving chains (`symptom → root cause → solution → verification`) |
+| **Retrieval** | Single-file read on demand (e.g. `decisions.md`) | Two-tier: read tiny index first, then grep entry slice |
+| **Prohibition** | **Never stores troubleshooting/debugging logs** | **Never stores general project architecture or user preferences** |
 
 ## How to Use
 
-### As a skill (Claude Code / Codex / compatible platforms)
-
-Drop the entire `intelligent-experience-extractor/` directory into your skills directory (e.g., `.claude/skills/` or `.codex/skills/`). The agent will load it automatically when triggered by troubleshooting, build, deployment, or similar engineering scenarios.
-
-### As a standalone knowledge base template
-
-Copy `assets/knowledge-base-readme.md` into your project as `.agent-knowledge/README.md` and start recording experiences using the template in `assets/experience-entry.md`. Any AI agent capable of reading Markdown can consume and maintain it.
-
-## Language
-
-The skill definition is written in Chinese and defaults to the user's current language for new knowledge bases. All templates and structures are language-agnostic — entries can be written in any language.
+Drop the entire `intelligent-experience-extractor/` directory into your agent's skills directory (e.g., `.claude/skills/` or `.agents/skills/`). The agent will automatically consult `experiences-index.md` whenever troubleshooting or ops tasks arise.
 
 ## License
 

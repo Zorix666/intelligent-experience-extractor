@@ -1,42 +1,60 @@
 ---
 name: intelligent-experience-extractor
-description: "检索并沉淀项目内已验证、可复用的工程经验。Use when starting troubleshooting, build, deployment, CI/CD, dependency, environment, configuration, performance, or stability work to search the project's Markdown knowledge base; also use after such work is verified complete, or when the user asks to record or review lessons, to extract a sanitized preview and save it only with explicit authorization or a persisted auto-save opt-in. Operate only through project file reads and writes, without platform memory, hooks, or proprietary APIs."
+description: 检索并沉淀项目内已验证、可复用的工程经验。采用「索引 + 正文」两级轻量架构（先整读轻量索引，再按需 Grep 正文，严禁整篇全量加载正文）。Use when starting troubleshooting, build, deployment, CI/CD, dependency, environment, configuration, performance, or stability work to search the project's Markdown knowledge base; also use after such work is verified complete, or when the user asks to record or review lessons, to extract a sanitized preview and save it only with explicit authorization or a persisted auto-save opt-in. Operate only through project file reads and writes, without platform memory, hooks, or proprietary APIs.
+whenToUse: 检索并沉淀项目内已验证、可复用的工程经验。采用「索引 + 正文」两级轻量架构（先整读轻量索引，再按需 Grep 正文，严禁整篇全量加载正文）。Use when starting troubleshooting, build, deployment, CI/CD, dependency, environment, configuration, performance, or stability work to search the project's Markdown knowledge base; also use after such work is verified complete, or when the user asks to record or review lessons, to extract a sanitized preview and save it only with explicit authorization or a persisted auto-save opt-in. Operate only through project file reads and writes, without platform memory, hooks, or proprietary APIs.
 ---
 
 # 智能经验提取器
 
-只把可执行、已验证、对未来同类工程任务有帮助的结论写入项目 Markdown 知识库。不要归档对话、推理过程、长日志或全量任务历史。
+只把可执行、已验证、对未来同类工程任务有帮助的结论写入项目 Markdown 知识库。**采用「索引 + 正文」两级轻量架构，按需 Grep，严禁全量读入正文。** 不要归档对话、推理过程、长日志或全量任务历史。
+
+## 架构核心原则（两级轻量化检索）
+
+1. **两级双文件结构**：
+   - **索引文件**（`experiences-index.md`）：极轻量（几十行，百字节量级），一行一条。格式为：
+     `- **[现象/报错特征]** → grep `[精确关键词]` — [一句话根因与方案简述]`
+   - **正文文件**（`experiences.md`）：详细条目正文（可能膨胀至上百 KB），每条固定包含五段链路（现象 → 根因 → 方案 → 验证 → 预防）。
+2. **严禁全量加载正文（红线）**：
+   - 绝不可在任务开始时无脑全量读取/加载 `experiences.md`。必须**先读索引，命中后再用精准关键词 Grep 正文切片**，节约 90%+ 上下文 Token 并避免注意力稀释。
+3. **双步同步闭环沉淀**：
+   - 沉淀任何经验时，必须**同时完成两步**：
+     - ① 正文追加或合并重写至 `experiences.md`；
+     - ② 同步在索引 `experiences-index.md` 补加/更新对应的一行索引映射（漏填索引会导致未来会话永远无法被轻量扫描命中）。
+4. **与记忆项目（Project Memory Curator）的职责解耦**：
+   - **经验库专职**：排障、Bug 修复、故障恢复、构建失败、环境踩坑复盘；
+   - **记忆库专职**：技术栈架构、模块边界、用户偏好、部署命令等项目事实；
+   - 严禁将排障流水账写入记忆库，也严禁在经验库中记录与故障排查无关的项目基础事实。
 
 ## 兼容性约束
 
 - 只使用 Agent 普遍具备的目录遍历、文本搜索、文件读取和文件写入能力。
 - 不要求任何平台专有 API、Hook、记忆、数据库、网络服务或脚本运行时。
 - 把项目内 Markdown 文件视为唯一持久状态；不要依赖当前会话之外的隐式记忆。
-- 使用当前 Agent 可用的文件工具；有快速文本搜索时优先使用，没有时逐个读取候选 Markdown 文件。
+- 使用当前 Agent 可用的文件工具；通过 Grep / 局部切片读取候选条目。
 - 不要为了使用本 Skill 修改业务代码、Agent 配置或项目工作流。
 
 ## 定位项目与知识库
 
 1. 确定本次任务的项目根目录。优先使用版本库根目录；没有版本库时，使用包含主要项目文件的最近共同目录。
-2. 先检查项目已有的知识库、排障文档、runbook、贡献规范或文档索引。若已有适合承载结构化工程经验的位置和格式，沿用它，不迁移、不重复建库。
-3. 没有既有规范时，使用 `<project-root>/.agent-knowledge/`：
-   - `README.md`：说明、自动保存设置、分类和索引。
-   - `experiences.md`：默认的按日期追加文件。
-   - 内容变多且形成稳定主题后，可使用 `frontend.md`、`backend.md`、`devops.md`、`database.md` 等主题文件，并同步更新索引。
-4. 在用户授权保存之前，不要仅为候选经验创建目录或文件。
+2. 检查项目已有的知识库位置。没有既有规范时，默认使用 `<project-root>/.agent-knowledge/`：
+   - `README.md`：说明、自动保存设置与规则。
+   - `experiences-index.md`：轻量索引表，先读此文件。
+   - `experiences.md`：正文文件，按需 Grep。
+3. 首次创建默认知识库时，以 [assets/knowledge-base-readme.md](assets/knowledge-base-readme.md) 为基础生成 `README.md`，使用 [assets/experiences-index.md](assets/experiences-index.md) 作为索引模板，使用 [assets/experience-entry.md](assets/experience-entry.md) 作为条目模板。
 
-首次创建默认知识库时，使用 [assets/knowledge-base-readme.md](assets/knowledge-base-readme.md) 作为 `README.md` 基础。使用 [assets/experience-entry.md](assets/experience-entry.md) 生成条目；复制后替换全部占位符，不要把模板说明写入知识库。
+## 在新任务开始时检索（按需 Grep）
 
-## 在新任务开始时检索
+当新任务涉及排障、构建、部署、CI/CD、依赖、环境、配置、性能或稳定性时，在深入修改前执行两级检索：
 
-当新任务涉及排障、构建、部署、CI/CD、依赖、环境、配置、性能或稳定性时，在深入修改前执行只读检索：
-
-1. 从任务中提取少量高区分度查询词：完整错误标识或关键片段、组件或依赖名、运行环境、可观察症状和相关命令。
-2. 先读知识库 `README.md` 或既有索引，再在对应 Markdown 文件中搜索标题、标签、适用场景、问题现象和根本原因。
-3. 只有在错误特征、组件、环境或根因中有多个要素吻合时，才视为高度相关。不要只因共享一个宽泛标签就提示。
-4. 命中高度相关条目时，简短提示其标题、可借鉴结论和项目相对路径，例如：`发现相关经验：〈标题〉（.agent-knowledge/devops.md）`。
-5. 把旧经验当作待验证线索，而不是当前问题必然具有相同根因。继续依据当前项目事实验证版本、配置和复现结果。
-6. 没有高度相关结果时静默继续，不要用无关命中打断任务。
+1. **第 1 步：整读轻量索引**：
+   直接读取 `experiences-index.md`（或 `README.md` 中的索引表）。对比当前任务的报错现象、关键命令或异常行为，快速扫描命中的索引行。
+2. **第 2 步：按关键词精准 Grep 正文**：
+   - 若索引命中对应条目，提取索引行中注明的 `grep 关键词`；
+   - 使用文本搜索工具定向抓取正文切片（例如 `Grep pattern="<关键词>" path=".agent-knowledge/experiences.md" -A 100`）；
+   - **绝不整篇读入 `experiences.md`**。
+3. **第 3 步：引用并告知**：
+   命中高度相关条目时，简短提示用户：「经验库中存在相关记录：〈标题〉（.agent-knowledge/experiences.md）」，并作为待验证线索融入本次修复思路。
+4. 没有命中结果时静默继续，不打断任务。
 
 ## 在任务完成后评估
 
@@ -56,101 +74,73 @@ description: "检索并沉淀项目内已验证、可复用的工程经验。Use
 - 候选内容主要是原始日志、个人信息、密钥、私密配置或客户数据。
 - 与现有经验实质重复，且没有新增适用边界、验证证据或更好的解决方案。
 
-如果用户明确要求记录但证据不完整，可以生成预览；把未知部分写成“未知”并将置信度设为“部分验证”或“推测”。不要把推测改写成根因事实。
-
 ## 提炼候选经验
 
-只从任务中已确认的文件变化、命令结果、测试结果、运行表现和用户确认中提炼以下链路：
+只从任务中已确认的事实提炼五段链路：
 
 1. **问题现象**：记录用户可观察的错误、行为或影响，以及必要的触发条件。
 2. **根本原因**：记录证据支持的直接因果关系。区分根因、诱因和表面报错；未知处明确写“未知”。
 3. **解决方案**：给出未来可重复执行的最小步骤、关键配置和必要命令。解释关键选择，不复述全部操作过程。
-4. **验证方式**：记录实际执行过的验证及结果。不要把计划执行或未运行的测试写成已通过。
+4. **验证方式**：记录实际执行过的验证及结果。不虚构未跑过的测试。
 5. **预防措施**：记录能减少复发的版本锁定、静态检查、CI 校验、健康检查、监控、告警或文档改进。
 
-为条目补充一句话标题、少量可搜索标签、适用技术与环境、置信度和相关上下文。置信度只使用：
-
-- `已验证`：根因、方案和结果均有直接证据。
-- `部分验证`：修复结果已确认，但根因细节、适用边界或预防措施只有部分证据。
-- `推测`：仅在用户明确要求保留假设时使用；清楚标出未验证内容。
+置信度只使用：`已验证`（均有证据）、`部分验证`（部分细节待明确）、`推测`（用户明确要求保留假设）。
 
 ## 脱敏与最小化
 
 在展示预览之前完成脱敏：
 
 - 移除 API key、Token、密码、Cookie、Authorization 头、私钥、连接串中的凭据及其可识别片段。
-- 泛化邮箱、真实姓名、用户名、本机主目录、私有 IP、租户或客户标识、内部主机名、私有 URL 和客户数据。
-- 使用一致占位符，如 `<REDACTED_TOKEN>`、`<USER>`、`<PRIVATE_HOST>`、`<PROJECT_PATH>`、`<CUSTOMER_DATA>`。
-- 命令只保留复用所需部分，把敏感参数值替换为占位符。
-- 日志改写成错误特征和结论；仅在不可替代时保留最短的已脱敏片段。
-- 路径优先写项目相对路径。不要记录机器绝对路径，除非该路径结构本身是已泛化的根因条件。
-- 无法判断某段值是否敏感时，选择脱敏或省略。
+- 泛化邮箱、真实姓名、用户名、本机主目录、私有 IP、租户标识、内部主机名、私有 URL。
+- 使用统一占位符，如 `<REDACTED_TOKEN>`、`<USER>`、`<PRIVATE_HOST>`、`<PROJECT_PATH>`。
+- 路径优先写项目相对路径，不暴露开发者个人机器绝对路径。
 
-## 查重与选择目标文件
+## 查重与合并优先
 
-在预览前搜索现有条目的标题、标签、症状、根因和方案：
+在预览前搜索现有条目：
 
-- 无实质重合时，默认追加到 `experiences.md`。
-- 已有稳定主题文件时，把新条目写入最匹配的主题文件。
-- 与现有条目相同但有新证据、新环境边界或更好方案时，在预览中建议“更新现有条目”，不要直接制造重复项。
-- 不确定是合并还是新增时，在预览中说明冲突，让用户通过“编辑”指定；自动保存模式下遇到这种歧义也必须暂停并请求选择。
+- **合并优先于新增**：同一主题若已有条目，应**合并重写旧条目**，把新环境、新证据和完善后的方案合为一体，严禁堆砌“补充一 / 补充二”流水账；
+- 无实质重合时才作为新条目追加。
 
 ## 预览与授权
 
-默认自动保存为关闭。唯一可跨会话生效的授权是在知识库 Markdown 索引中存在精确标记：
+默认自动保存为关闭。唯一可跨会话生效的授权是在知识库 Markdown 中存在精确标记：
 
-~~~markdown
+```markdown
 <!-- intelligent-experience-extractor:auto-save=on -->
-~~~
-
-标记缺失或值为 `off` 时都视为关闭。只有用户明确说“开启自动保存”或等价指令时，才把标记改为 `on`；用户明确关闭时改为 `off`。不要从平台设置、历史对话或模糊措辞推断自动保存状态。
+```
 
 生成候选后，先展示以下简短预览，不执行文件写入：
 
-~~~markdown
+```markdown
 经验预览
 - 动作：新增 / 更新
-- 目标：.agent-knowledge/experiences.md
+- 正文目标：.agent-knowledge/experiences.md
+- 索引同步：.agent-knowledge/experiences-index.md
 - 标题：...
-- 标签：...
-- 适用场景：...
-- 置信度：...
+- 索引行：- **[现象简述]** → grep `[关键词]` — [一句话根因与方案]
 - 现象：...
 - 根因：...
 - 方案：...
 - 验证：...
 - 预防：...
-- 脱敏：已检查；列出重要泛化项或“无敏感内容”
+- 脱敏：已检查（无敏感数据）
 
 请选择：保存 / 编辑（说明修改） / 跳过
-~~~
+```
 
-按以下状态处理：
-
-- **自动保存关闭**：展示预览后停止。只有用户明确选择“保存”或同义表达时才写入。
-- **编辑**：按用户要求修改并重新展示预览；编辑本身不等于授权保存。
-- **跳过**：不创建、不更新任何知识库文件。
-- **自动保存开启**：仍先展示写入前预览，然后可在同一轮按预览内容写入；若存在合并歧义、敏感信息疑虑或置信度为“推测”，暂停并请求明确选择。
-- 用户明确要求“保存本次经验”时，可将该指令视为本条目的保存授权，但不能视为以后自动保存的授权。
-
-## 保存并维护索引
+## 保存与双步同步写入
 
 获得授权后执行最小写入：
 
-1. 若默认知识库尚不存在，创建 `.agent-knowledge/README.md` 和目标经验文件；默认把自动保存标记设为 `off`，除非用户已明确开启。
-2. 按日期把完整条目追加到目标文件末尾。保持现有换行、标题层级和项目文档规范。
-3. 更新 `README.md` 中的分类和索引，使标题、日期、标签和相对文件路径可检索。
-4. 更新已有条目时，只改动目标条目及对应索引；保留仍然成立的历史信息，并注明新增验证日期或适用边界。
-5. 写入后重新读取相关片段，确认条目完整、占位符已替换、没有泄露敏感值、索引指向正确文件。
-6. 最后简短报告新增或更新的经验标题和项目相对文件路径。不要重复整条内容。
-
-每条默认经验严格使用模板中的字段。若项目已有文档格式，保留其格式，但确保“现象 → 根因 → 解决方案 → 验证 → 预防”及置信度信息仍可明确检索。
+1. **步骤 1：写入正文**：写入或更新 `experiences.md` 对应条目。
+2. **步骤 2：同步写入索引**：在 `experiences-index.md` 索引列表中同步追加或更新对应的一行索引映射。
+3. 写入后局部重读验证，确认索引关键词与正文中的特征词严格一致。
+4. 简短向用户汇报完成，指出写入的标题与文件路径。
 
 ## 行为边界
 
-- 不要因为启用本 Skill 就把每个完成的任务都写入知识库。
-- 不要把内部思维过程、聊天摘要、未经验证的猜测或长日志当作经验。
-- 不要为美化记录而虚构命令、测试、指标、文件、Issue、PR 或参考链接。
-- 不要在未授权时预创建“空知识库”或写入候选草稿。
-- 不要覆盖用户已有文档；追加或局部更新前先读取当前内容。
+- 不要因为启用本 Skill 就把每个日常编码任务都写成经验。
+- 不要把内部思维过程、聊天摘要或全量长日志当作经验。
+- 严禁全量读入 `experiences.md`。必须始终坚持“先读索引，按需 Grep 正文”。
 - 不要让经验提取改变“先完成并验证工程任务”的优先级。
