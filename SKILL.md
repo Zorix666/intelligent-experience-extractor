@@ -1,7 +1,6 @@
 ---
 name: intelligent-experience-extractor
-description: 检索并沉淀项目内已验证、可复用的工程经验。采用「索引 + 正文」两级轻量架构（先整读轻量索引，再按需 Grep 正文，严禁整篇全量加载正文）。Use when starting troubleshooting, build, deployment, CI/CD, dependency, environment, configuration, performance, or stability work to search the project's Markdown knowledge base; also use after such work is verified complete, or when the user asks to record or review lessons, to extract a sanitized preview and save it only with explicit authorization or a persisted auto-save opt-in. Operate only through project file reads and writes, without platform memory, hooks, or proprietary APIs.
-whenToUse: 检索并沉淀项目内已验证、可复用的工程经验。采用「索引 + 正文」两级轻量架构（先整读轻量索引，再按需 Grep 正文，严禁整篇全量加载正文）。Use when starting troubleshooting, build, deployment, CI/CD, dependency, environment, configuration, performance, or stability work to search the project's Markdown knowledge base; also use after such work is verified complete, or when the user asks to record or review lessons, to extract a sanitized preview and save it only with explicit authorization or a persisted auto-save opt-in. Operate only through project file reads and writes, without platform memory, hooks, or proprietary APIs.
+description: 检索并沉淀已验证、可复用的工程排障经验。采用「索引 + 正文」两级轻量架构（先整读轻量索引，再按需 Grep 正文，严禁整篇全量加载正文）。Use when starting troubleshooting, build, deployment, CI/CD, dependency, environment, configuration, performance, or stability work to search the Markdown knowledge base; also use after such work is verified complete, or when the user asks to record or review lessons, to extract a sanitized preview and save it only with explicit authorization or a persisted auto-save opt-in. (For project facts, tech stack, conventions, and architectural decisions, use project-memory-curator instead.)
 ---
 
 # 智能经验提取器
@@ -29,18 +28,21 @@ whenToUse: 检索并沉淀项目内已验证、可复用的工程经验。采用
 
 - 只使用 Agent 普遍具备的目录遍历、文本搜索、文件读取和文件写入能力。
 - 不要求任何平台专有 API、Hook、记忆、数据库、网络服务或脚本运行时。
-- 把项目内 Markdown 文件视为唯一持久状态；不要依赖当前会话之外的隐式记忆。
+- 把项目内 Markdown 文件与全局经验库共同视为持久状态；不要依赖当前会话之外的隐式记忆。
 - 使用当前 Agent 可用的文件工具；通过 Grep / 局部切片读取候选条目。
 - 不要为了使用本 Skill 修改业务代码、Agent 配置或项目工作流。
 
 ## 定位项目与知识库
 
-1. 确定本次任务的项目根目录。优先使用版本库根目录；没有版本库时，使用包含主要项目文件的最近共同目录。
-2. 检查项目已有的知识库位置。没有既有规范时，默认使用 `<project-root>/.agent-knowledge/`：
+1. **路由判断（全局经验 vs 项目经验）**：
+   - **跨项目通用经验**（通用排障、环境与系统配置、工具链、依赖踩坑）：以全局经验库为准 —— 索引 `~/.claude/experiences-index.md`，正文 `~/.claude/experiences.md`（按全局 CLAUDE.md 第 1 节先查索引再 grep 正文）。
+   - **项目特有经验**（特定业务逻辑、专属服务、私有架构修复）：以项目内知识库为准，继续按以下步骤处理。
+2. 确定本次任务的项目根目录。优先使用版本库根目录；没有版本库时，使用包含主要项目文件的最近共同目录。
+3. 检查项目已有的知识库位置。没有既有规范时，默认使用 `<project-root>/.agent-knowledge/`：
    - `README.md`：说明、自动保存设置与规则。
    - `experiences-index.md`：轻量索引表，先读此文件。
    - `experiences.md`：正文文件，按需 Grep。
-3. 首次创建默认知识库时，以 [assets/knowledge-base-readme.md](assets/knowledge-base-readme.md) 为基础生成 `README.md`，使用 [assets/experiences-index.md](assets/experiences-index.md) 作为索引模板，使用 [assets/experience-entry.md](assets/experience-entry.md) 作为条目模板。
+4. 首次创建默认知识库时，以 [assets/knowledge-base-readme.md](assets/knowledge-base-readme.md) 为基础生成 `README.md`，使用 [assets/experiences-index.md](assets/experiences-index.md) 作为索引模板，使用 [assets/experience-entry.md](assets/experience-entry.md) 作为条目模板。
 
 ## 在新任务开始时检索（按需 Grep）
 
@@ -109,6 +111,8 @@ whenToUse: 检索并沉淀项目内已验证、可复用的工程经验。采用
 ```markdown
 <!-- intelligent-experience-extractor:auto-save=on -->
 ```
+
+`.agent-knowledge/README.md` 可能同时被 `project-memory-curator` 使用，只增改自己的 marker 行，保留对方的 marker 与章节。标记缺失、重复、格式错误或值未知时一律视为关闭（`off`）。
 
 生成候选后，先展示以下简短预览，不执行文件写入：
 
